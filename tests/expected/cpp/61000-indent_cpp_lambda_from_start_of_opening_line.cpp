@@ -20,8 +20,8 @@ int main()
 
     EXPECT_CALL(*foo, bar)
         .WillOnce(InvokeWithoutArgs([&]() {
-                    return 0;
-                }));
+            return 0;
+        }));
 
     EXPECT_CALL(*foo, bar).WillOnce(InvokeWithoutArgs([&]() {
                               return 0;

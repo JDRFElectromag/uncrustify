@@ -1614,26 +1614,28 @@ void indent_text()
             // test example cpp:61000
             log_rule_B("indent_cpp_lambda_from_start_of_opening_line");
 
-            int depth = 1;
-            auto parent = frm.prev(depth);
+            int  depth        = 1;
+            auto parent       = frm.prev(depth);
             auto opening_line = parent.GetOpenLine();
-            auto opening_col = parent.GetOpenCol();
+            auto opening_col  = parent.GetOpenCol();
 
             LOG_FMT(LINDENT2, "%s(%d): orig line is %zu, orig col is %zu opening line %zu opening col %zu\n",
                     __func__, __LINE__, pc->GetOrigLine(), pc->GetOrigCol(), opening_line, opening_col);
 
-            while (parent.GetOpenLine() == opening_line) {
-                LOG_FMT(LINDENT2, "%s(%d) parent(%u) text %s orig col %zu\n",
-                        __func__, __LINE__, depth, parent.GetOpenChunk()->Text(), parent.GetOpenCol());
-                opening_col = parent.GetOpenCol();
-                parent = frm.prev(++depth);
-            }
-            // If the lambda is not nested inside other parenthesis, then use the brace level to
-            // calculate the indent offset
-            if (depth == 2) {
-                opening_col = 1 + (pc->GetBraceLevel() * indent_size);
+            while (parent.GetOpenLine() == opening_line)
+            {
+               LOG_FMT(LINDENT2, "%s(%d) parent(%u) text %s orig col %zu\n",
+                       __func__, __LINE__, depth, parent.GetOpenChunk()->Text(), parent.GetOpenCol());
+               opening_col = parent.GetOpenCol();
+               parent      = frm.prev(++depth);
             }
 
+            // If the lambda is not nested inside other parenthesis, then use the brace level to
+            // calculate the indent offset
+            if (depth == 2)
+            {
+               opening_col = 1 + (pc->GetBraceLevel() * indent_size);
+            }
             frm.top().SetBraceIndent(opening_col);
             indent_column_set(frm.top().GetBraceIndent());
             frm.top().SetIndent(opening_col + indent_size);
