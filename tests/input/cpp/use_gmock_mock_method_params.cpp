@@ -12,6 +12,7 @@ public:
     MOCK_METHOD2(k, ai_buffer*(ai_handle n, ai_u16 *b));
     MOCK_METHOD1(l, const size_t *(int n));
     MOCK_METHOD1(m, cfg_t **(int n));
+    MOCK_METHOD(volatile void *, n, ());
 };
 
 void j()
