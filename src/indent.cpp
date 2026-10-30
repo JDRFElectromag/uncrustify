@@ -1629,6 +1629,15 @@ void indent_text()
                opening_col = parent.GetOpenCol();
                parent      = frm.prev(++depth);
             }
+            // A later link in a call chain, as in '.WillOnce(...)' on its own line, has no frame
+            // for its leading '.', so the walk above stops at the call's paren instead.
+            Chunk *line_start = frm.prev().GetOpenChunk()->GetFirstChunkOnLine();
+
+            if (  line_start->Is(CT_MEMBER)
+               && line_start->GetColumn() < opening_col)
+            {
+               opening_col = line_start->GetColumn();
+            }
 
             // If the lambda is not nested inside other parenthesis, then use the brace level to
             // calculate the indent offset
@@ -4185,6 +4194,18 @@ void indent_text()
                                    __func__, __LINE__, before_Assign->Text(), get_token_name(before_Assign->GetType()), vor_col);
                            indent_column = vor_col + 2 * indent_size;
                         }
+                     }
+                     else if (  token_before->Is(CT_BRACE_OPEN)
+                             && options::indent_cpp_lambda_from_start_of_opening_line())
+                     {
+                        // test example cpp:61000
+                        // A '{' that ends its line sits far right of the block body, so indent
+                        // relative to the body's indent rather than the brace's column.
+                        log_rule_B("indent_cpp_lambda_from_start_of_opening_line");
+                        vor_col = frm.at(temp_ttidx).GetIndent();
+                        LOG_FMT(LINDPC, "%s(%d): Text() is '%s', token_before->GetType() is %s, body indent is %zu\n",
+                                __func__, __LINE__, token_before->Text(), get_token_name(token_before->GetType()), vor_col);
+                        indent_column = vor_col + indent_size;
                      }
                      else if (token_before->Is(CT_BRACE_OPEN))
                      {

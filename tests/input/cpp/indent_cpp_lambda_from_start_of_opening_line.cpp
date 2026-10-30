@@ -20,4 +20,32 @@ int main()
         .WillOnce(InvokeWithoutArgs([&]() { return 0; }));
 
     EXPECT_CALL(*foo, bar).WillOnce(InvokeWithoutArgs([&]() { return 0; }));
+
+    EXPECT_CALL(*foo, bar)
+        .WillOnce(Return(0))
+        .WillOnce(InvokeWithoutArgs([&]() {
+                                return 0;
+                            }));
+
+    auto addPulse = [&] (bool isLastPulse = false) {
+        EXPECT_CALL(*foo, bar)
+                                                           .WillOnce(Return(false));
+
+        for (unsigned i = 0; i < n; i++) {
+            EXPECT_CALL(*foo, bar)
+                                        .WillOnce(Return(0));
+        }
+    };
+
+    for (unsigned i = 0; i < n; i++) {
+        EXPECT_CALL(*foo, bar)
+                                                .WillOnce(Return(0));
+    }
+
+    EXPECT_CALL(*foo, bar)
+        .WillOnce(Return(true))
+        .WillOnce(Invoke([&]()
+                 {
+                     return true;
+                 }));
 }
