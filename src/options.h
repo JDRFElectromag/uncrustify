@@ -4419,6 +4419,12 @@ use_options_overriding_for_qt_macros; // = true
 extern Option<bool>
 use_form_feed_no_more_as_whitespace_character;
 
+// (C++) If true: treat the parameter list of a Google Mock MOCK_METHOD macro as
+// function parameters, so 'T *p' is spaced as a pointer declaration rather than
+// as a multiplication.
+extern Option<bool>
+use_gmock_mock_method_params;
+
 //END
 
 ///////////////////////////////////////////////////////////////////////////////
