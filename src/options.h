@@ -1945,7 +1945,8 @@ extern Option<bool>
 indent_cpp_lambda_body;
 
 // When true indent the C++11 lambda relative to the starting column of the
-// line where the lambda is opened.
+// line where the lambda is opened. Also indent a line that continues a call
+// chain with '.' relative to the enclosing block's body, not its '{' column.
 extern Option<bool>
 indent_cpp_lambda_from_start_of_opening_line;
 
