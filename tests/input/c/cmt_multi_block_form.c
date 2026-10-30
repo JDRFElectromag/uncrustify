@@ -83,3 +83,9 @@ int l;
 /* Tip: text on the opener
 *  ===  and a star at the margin */
 int m;
+
+/*
+ * Blank star lines at either end stay
+ *
+ */
+int n;

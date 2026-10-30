@@ -3013,16 +3013,17 @@ static void cmt_multi_to_block_form(Chunk *pc)
       line = std::wstring((rel_col > 2) ? rel_col - 2 : 1, L' ') + line.substr(first);
    }
 
-   while (  !lines.empty()
-         && lines.front().empty())
-   {
-      lines.erase(lines.begin());
-   }
-
-   while (  !lines.empty()
-         && lines.back().empty())
+   // Drop only what was left of the opener and closer lines; blank ' *' lines stay
+   if (  !lines.empty()
+      && lines.back().empty())
    {
       lines.pop_back();
+   }
+
+   if (  !lines.empty()
+      && lines.front().empty())
+   {
+      lines.erase(lines.begin());
    }
 
    if (lines.empty())
