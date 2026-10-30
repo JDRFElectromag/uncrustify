@@ -31,7 +31,16 @@ int main()
         .WillOnce(Return(0))
         .WillOnce(InvokeWithoutArgs([&]() {
             return 0;
-        }));
+        }))
+        .WillOnce(InvokeWithoutArgs([&]() {
+            return 0;
+        }))
+        .WillRepeatedly(Invoke(
+            [&](void *fooPtr, int alpha, int beta, int charlie)
+            {
+                return 0;
+            }
+        ));
 
     auto addPulse = [&] (bool isLastPulse = false) {
         EXPECT_CALL(*foo, bar)
@@ -39,7 +48,10 @@ int main()
 
         for (unsigned i = 0; i < n; i++) {
             EXPECT_CALL(*foo, bar)
-                .WillOnce(Return(0));
+                .WillOnce(Return(0))
+                .WillOnce(InvokeWithoutArgs([&]() {
+                    return 0;
+                }));
         }
     };
 
