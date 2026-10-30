@@ -33,12 +33,12 @@ int main()
             return 0;
         }))
         .WillOnce(InvokeWithoutArgs([&]() {
-            /* foo bar */
+            // foo bar
             return 0;
         }))
         .WillRepeatedly(Invoke(
             /**
-             * This is a comment block
+             * this is a comment block
              */
             [&](void *fooPtr, int alpha, int beta, int charlie)
             {
