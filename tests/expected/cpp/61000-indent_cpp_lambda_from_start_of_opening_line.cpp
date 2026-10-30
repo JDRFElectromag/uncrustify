@@ -33,9 +33,13 @@ int main()
             return 0;
         }))
         .WillOnce(InvokeWithoutArgs([&]() {
+            /* foo bar */
             return 0;
         }))
         .WillRepeatedly(Invoke(
+            /**
+             * This is a comment block
+             */
             [&](void *fooPtr, int alpha, int beta, int charlie)
             {
                 return 0;
@@ -58,6 +62,17 @@ int main()
     for (unsigned i = 0; i < n; i++) {
         EXPECT_CALL(*foo, bar)
             .WillOnce(Return(0));
+    }
+
+    {
+        for (unsigned i = 0; i < n; i++) {
+            EXPECT_CALL(*foo, bar)
+                .WillOnce(Return(0))
+                .WillOnce(Invoke([]{
+                    return 0;
+                }))
+                .WillOnce(Return(0));
+        }
     }
 
     EXPECT_CALL(*foo, bar)
