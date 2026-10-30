@@ -22,6 +22,7 @@
 #include "tokenizer/flag_braced_init_list.h"
 #include "tokenizer/flag_parens.h"
 #include "tokenizer/tokenize_cleanup.h"
+#include "unc_ctype.h"
 #include "uncrustify.h"
 
 #include <limits>
@@ -240,6 +241,13 @@ static bool is_oc_block(Chunk *pc);
  * Mark the parent of the colon and semicolon
  */
 static void handle_java_assert(Chunk *pc);
+
+
+/**
+ * Marks the parameter list of each Google Mock MOCK_METHOD macro as function
+ * parameters, so 'T *p' inside it is a pointer declaration.
+ */
+static void mark_gmock_mock_method_params();
 
 
 static void flag_asm(Chunk *pc)
@@ -2131,7 +2139,128 @@ void fix_symbols()
          pc = pc->GetNextNcNnl();
       }
    }
+
+   if (  is_cpp
+      && options::use_gmock_mock_method_params())
+   {
+      log_rule_B("use_gmock_mock_method_params");
+      mark_gmock_mock_method_params();
+   }
 } // fix_symbols
+
+
+static bool is_gmock_mock_method(const char *text, bool &is_new_style)
+{
+   // MOCK_METHOD(ret, name, (params), (specs)) or the legacy
+   // MOCK_[CONST_]METHODn[_T](name, ret(params))
+   is_new_style = (strcmp(text, "MOCK_METHOD") == 0);
+
+   if (is_new_style)
+   {
+      return(true);
+   }
+   const char *rest = text;
+
+   if (strncmp(rest, "MOCK_CONST_METHOD", 17) == 0)
+   {
+      rest += 17;
+   }
+   else if (strncmp(rest, "MOCK_METHOD", 11) == 0)
+   {
+      rest += 11;
+   }
+   else
+   {
+      return(false);
+   }
+
+   if (!unc_isdigit(*rest))
+   {
+      return(false);
+   }
+
+   while (unc_isdigit(*rest))
+   {
+      rest++;
+   }
+   return(  *rest == '\0'
+         || strcmp(rest, "_T") == 0);
+} // is_gmock_mock_method
+
+
+static void mark_gmock_mock_method_params()
+{
+   LOG_FUNC_ENTRY();
+
+   // test example cpp:61001
+   for (Chunk *pc = Chunk::GetHead(); pc->IsNotNullChunk(); pc = pc->GetNextNcNnl())
+   {
+      bool is_new_style = false;
+
+      if (!is_gmock_mock_method(pc->Text(), is_new_style))
+      {
+         continue;
+      }
+      Chunk *paren_open = pc->GetNextNcNnl();
+
+      if (!paren_open->IsParenOpen())
+      {
+         continue;
+      }
+      // The parameter list is the paren group in the third argument of
+      // MOCK_METHOD, or the one after the return type in the second argument
+      // of the legacy macros.
+      const size_t param_arg = is_new_style ? 2 : 1;
+      const size_t arg_level = paren_open->GetLevel() + 1;
+      size_t       arg       = 0;
+
+      for (Chunk *tmp = paren_open->GetNextNcNnl();
+           tmp->IsNotNullChunk() && tmp->GetLevel() >= arg_level;
+           tmp = tmp->GetNextNcNnl())
+      {
+         if (tmp->GetLevel() != arg_level)
+         {
+            continue;
+         }
+
+         if (tmp->Is(CT_COMMA))
+         {
+            arg++;
+         }
+         else if (  tmp->IsParenOpen()
+                 && arg == param_arg)
+         {
+            LOG_FMT(LFCNP, "%s(%d): orig line %zu, params of '%s'\n",
+                    __func__, __LINE__, tmp->GetOrigLine(), pc->Text());
+
+            // A lone 'T &r' was taken for a bitwise and, which fix_fcn_def_params
+            // does not recognise as a reference.
+            for (Chunk *amp = tmp->GetNextNcNnl();
+                 amp->IsNotNullChunk() && amp->GetLevel() > tmp->GetLevel();
+                 amp = amp->GetNextNcNnl())
+            {
+               if (  amp->GetLevel() == tmp->GetLevel() + 1
+                  && amp->Is(CT_ARITH)
+                  && amp->IsString("&"))
+               {
+                  amp->SetType(CT_AMP);
+               }
+            }
+            fix_fcn_def_params(tmp);
+
+            // The legacy 'T *(params)' return type ends in stars that were
+            // taken for a multiplication.
+            for (Chunk *star = tmp->GetPrevNcNnl();
+                 !is_new_style && star->IsStar();
+                 star = star->GetPrevNcNnl())
+            {
+               star->SetType(CT_PTR_TYPE);
+            }
+            break;
+         }
+      }
+   }
+} // mark_gmock_mock_method_params
 
 
 static void process_returns_and_throws()
