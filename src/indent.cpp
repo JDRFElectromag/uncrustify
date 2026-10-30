@@ -202,6 +202,14 @@ static bool is_end_of_assignment(Chunk *pc, const ParsingFrame &frm);
 static void list_the_frm(Chunk *pc, const ParsingFrame &frm, int lineNumber);
 
 
+/**
+ * With indent_cpp_lambda_from_start_of_opening_line: true for a '(' that ends
+ * its line and whose argument on the next line is a lambda, as in
+ * 'Invoke(' followed by '[&](...)'.
+ */
+static bool is_hanging_lambda_paren(Chunk *pc);
+
+
 static void list_the_frm(Chunk *pc, const ParsingFrame &frm, int lineNumber)
 {
    LOG_FMT(LINDPC, "%s(%d): (%d)\n", __func__, __LINE__, lineNumber);
@@ -404,6 +412,28 @@ static size_t calc_indent_continue(const ParsingFrame &frm, size_t pse_tos)
 static size_t calc_indent_continue(const ParsingFrame &frm)
 {
    return(calc_indent_continue(frm, frm.size() - 1));
+}
+
+
+static bool is_hanging_lambda_paren(Chunk *pc)
+{
+   if (  !language_is_set(lang_flag_e::LANG_CPP)
+      || !options::indent_cpp_lambda_from_start_of_opening_line()
+      || !pc->IsParenOpen())
+   {
+      return(false);
+   }
+   Chunk *next = pc->GetNextNc();
+
+   if (!next->IsNewline())
+   {
+      return(false);
+   }
+   next = next->GetNextNcNnl();
+
+   return(  (  next->Is(CT_SQUARE_OPEN)
+            || next->Is(CT_TSQUARE))
+         && next->GetParentType() == CT_CPP_LAMBDA);
 }
 
 
@@ -1645,6 +1675,26 @@ void indent_text()
             {
                opening_col = 1 + (pc->GetBraceLevel() * indent_size);
             }
+            // A lambda whose capture starts its own line is indented from the capture.
+            // Walk back over the parameters, specifiers and trailing return type to find it.
+            Chunk *capture = pc->GetPrevNcNnl();
+
+            while (  capture->IsNotNullChunk()
+                  && capture->GetLevel() >= pc->GetLevel()
+                  && !(  (  capture->Is(CT_SQUARE_OPEN)
+                         || capture->Is(CT_TSQUARE))
+                      && capture->GetParentType() == CT_CPP_LAMBDA
+                      && capture->GetLevel() == pc->GetLevel()))
+            {
+               capture = capture->GetPrevNcNnl();
+            }
+
+            if (  (  capture->Is(CT_SQUARE_OPEN)
+                  || capture->Is(CT_TSQUARE))
+               && capture->GetFirstChunkOnLine() == capture)
+            {
+               opening_col = capture->GetColumn();
+            }
             frm.top().SetBraceIndent(opening_col);
             indent_column_set(frm.top().GetBraceIndent());
             frm.top().SetIndent(opening_col + indent_size);
@@ -2865,6 +2915,13 @@ void indent_text()
                   }
                }
                frm.top().SetIndent(frm.at(sub).GetIndent() + indent_size);
+
+               if (is_hanging_lambda_paren(pc))
+               {
+                  // test example cpp:61000
+                  log_rule_B("indent_cpp_lambda_from_start_of_opening_line");
+                  frm.top().SetIndent(pc->GetFirstChunkOnLine()->GetColumn() + indent_size);
+               }
                log_indent();
 
                frm.top().SetIndentTab(frm.top().GetIndent());
@@ -3728,7 +3785,13 @@ void indent_text()
 
                log_rule_B("indent_paren_close");
 
-               if (options::indent_paren_close() == -1)
+               if (is_hanging_lambda_paren(ck1))
+               {
+                  // test example cpp:61000
+                  log_rule_B("indent_cpp_lambda_from_start_of_opening_line");
+                  indent_column_set(ck1->GetFirstChunkOnLine()->GetColumn());
+               }
+               else if (options::indent_paren_close() == -1)
                {
                   LOG_FMT(LINDLINE, "%s(%d): [%zu:%zu] indent_paren_close is -1\n",
                           __func__, __LINE__, ck2->GetOrigLine(), ck2->GetOrigCol());
