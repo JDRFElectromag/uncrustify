@@ -210,6 +210,14 @@ static void list_the_frm(Chunk *pc, const ParsingFrame &frm, int lineNumber);
 static bool is_hanging_lambda_paren(Chunk *pc);
 
 
+/**
+ * With indent_cpp_lambda_from_start_of_opening_line: true for a '(' that does
+ * not end its line and holds a lambda followed by more arguments on later
+ * lines, as in 'registerHandler([this](...) {' ... '},' then 'kPriorityHigh);'.
+ */
+static bool is_lambda_then_args_paren(Chunk *pc);
+
+
 static void list_the_frm(Chunk *pc, const ParsingFrame &frm, int lineNumber)
 {
    LOG_FMT(LINDPC, "%s(%d): (%d)\n", __func__, __LINE__, lineNumber);
@@ -434,6 +442,37 @@ static bool is_hanging_lambda_paren(Chunk *pc)
    return(  (  next->Is(CT_SQUARE_OPEN)
             || next->Is(CT_TSQUARE))
          && next->GetParentType() == CT_CPP_LAMBDA);
+}
+
+
+static bool is_lambda_then_args_paren(Chunk *pc)
+{
+   if (  !language_is_set(lang_flag_e::LANG_CPP)
+      || !options::indent_cpp_lambda_from_start_of_opening_line()
+      || !pc->IsParenOpen()
+      || pc->GetNextNc()->IsNewline())
+   {
+      return(false);
+   }
+   Chunk *close = pc->GetClosingParen();
+
+   for (Chunk *tmp = pc->GetNextNc(); tmp->IsNotNullChunk() && tmp != close; tmp = tmp->GetNextNc())
+   {
+      if (  tmp->Is(CT_BRACE_CLOSE)
+         && tmp->GetParentType() == CT_CPP_LAMBDA
+         && tmp->GetLevel() == pc->GetLevel() + 1)
+      {
+         Chunk *next = tmp->GetNextNc();
+
+         if (  next->Is(CT_COMMA)
+            && next->GetNextNc()->IsNewline())
+         {
+            return(true);
+         }
+      }
+   }
+
+   return(false);
 }
 
 
@@ -1674,6 +1713,12 @@ void indent_text()
             if (depth == 2)
             {
                opening_col = 1 + (pc->GetBraceLevel() * indent_size);
+            }
+
+            // A lambda followed by more arguments on later lines lines up with those arguments.
+            if (is_lambda_then_args_paren(frm.prev().GetOpenChunk()))
+            {
+               opening_col = frm.prev().GetIndent();
             }
             // A lambda whose capture starts its own line is indented from the capture.
             // Walk back over the parameters, specifiers and trailing return type to find it.
@@ -2957,6 +3002,13 @@ void indent_text()
                      {
                         frm.top().SetIndent(next->GetColumn());
                      }
+                  }
+
+                  if (is_lambda_then_args_paren(pc))
+                  {
+                     // test example cpp:61000
+                     log_rule_B("indent_cpp_lambda_from_start_of_opening_line");
+                     frm.top().SetIndent(pc->GetFirstChunkOnLine()->GetColumn() + indent_size);
                   }
                   log_indent();
                }

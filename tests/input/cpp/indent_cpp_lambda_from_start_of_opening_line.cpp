@@ -104,7 +104,7 @@ void alignedArgsLambdaFirst()
     registerHandler([this](int code) {
         handle(code);
     },
-                    kPriorityHigh);
+                                                    kPriorityHigh);
 }
 
 void assignmentWrapBraceOnCaptureLine()
@@ -113,7 +113,7 @@ void assignmentWrapBraceOnCaptureLine()
         [&](const op_t *op, state_t *stateOut) {
         stateOut->count = ctx.count;
         for (unsigned i = 0; i < ctx.count; i++) {
-            stateOut->item[i] = op->item[i];
+        stateOut->item[i] = op->item[i];
         }
     };
 }
@@ -123,7 +123,7 @@ void assignmentWrapBraceOnOwnLine()
     auto executeOpFn =
         [&](const op_t *op, state_t *stateOut)
     {
-        stateOut->count = ctx.count;
+    stateOut->count = ctx.count;
     };
 }
 
@@ -131,7 +131,7 @@ void assignmentWrapTrailingReturnType()
 {
     std::function<bool(int)> isEven =
         [](int value) -> bool {
-        return (value % 2) == 0;
+                                                                return (value % 2) == 0;
     };
 }
 
@@ -143,7 +143,7 @@ void assignmentWrapSpecifiers()
     };
     auto noCapture =
         [](int value) {
-        return value;
+            return value;
     };
 }
 
@@ -151,7 +151,7 @@ void returnWrap()
 {
     return
         [=]() {
-        run();
+                    run();
     };
 }
 
@@ -186,18 +186,18 @@ void nestedCaptureFirstOnLine()
         [&]() {
         auto inner =
             [&](int value) {
-            return value + 1;
+                return value + 1;
         };
-        return inner(1);
+            return inner(1);
     };
 }
 
 void captureNotFirstOnLineUnchanged()
 {
     auto f = [&]() {
-        run();
-    };
+                run();
+          };
     auto it = std::find_if(timers.begin(), timers.end(), [&](std::shared_ptr<Timer> timer) {
-        return timer->GetId() == id;
-    });
+                    return timer->GetId() == id;
+            });
 }

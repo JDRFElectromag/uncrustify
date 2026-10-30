@@ -108,9 +108,9 @@ void alignedArgsLambdaFirst()
         return a < b;
     });
     registerHandler([this](int code) {
-        handle(code);
-    },
-                    kPriorityHigh);
+            handle(code);
+        },
+        kPriorityHigh);
 }
 
 void assignmentWrapBraceOnCaptureLine()
