@@ -588,3 +588,4 @@
 10127  c/indent_single_newlines_indent_0.cfg            c/indent_single_newlines.c
 10128  c/indent_single_newlines_indent_1.cfg            c/indent_single_newlines.c
 10129  c/indent_single_newlines_indent_2.cfg            c/indent_single_newlines.c
+61010  c/cmt_multi_block_form.cfg                       c/cmt_multi_block_form.c

@@ -92,6 +92,16 @@ void print_numbering()
 static void output_comment_multi(Chunk *pc);
 
 
+/**
+ * With cmt_multi_block_form: rewrites a multi-line C comment that stands on
+ * its own lines into block form, with a slash and two stars alone on the
+ * first line, ' * ' before each line of text and the terminator alone on the
+ * last line. Banners, Qt-style '!' comments and comments sharing a line with
+ * code are left as they are.
+ */
+static void cmt_multi_to_block_form(Chunk *pc);
+
+
 static bool kw_fcn_filename(Chunk *cmt, UncText &out_txt);
 
 
@@ -982,6 +992,13 @@ void output_text(FILE *pfile)
          log_rule_B("cmt_indent_multi");
          log_rule_B("cmt_convert_tab_to_spaces - multi");
          cpd.output_tab_as_space = options::cmt_convert_tab_to_spaces();
+
+         log_rule_B("cmt_multi_block_form");
+
+         if (options::cmt_multi_block_form())
+         {
+            cmt_multi_to_block_form(pc);
+         }
 
          if (options::cmt_indent_multi())
          {
@@ -2900,6 +2917,137 @@ static void output_comment_multi(Chunk *pc)
       }
    }
 } // output_comment_multi
+
+
+static void cmt_multi_to_block_form(Chunk *pc)
+{
+   const std::wstring text(pc->GetStr().get().cbegin(), pc->GetStr().get().cend());
+   const size_t       len = text.size();
+
+   // test example c:61010
+   if (  pc->TestFlags(PCF_IN_PREPROC)
+      || len < 5
+      || text.compare(0, 2, L"/*") != 0
+      || text.compare(len - 2, 2, L"*/") != 0
+      || (  pc->GetPrev()->IsNotNullChunk()
+         && !pc->GetPrev()->IsNewline())
+      || (  pc->GetNext()->IsNotNullChunk()
+         && !pc->GetNext()->IsNewline()))
+   {
+      return;
+   }
+   size_t body_start = 2;
+
+   if (text[2] == '*')
+   {
+      body_start = 3;
+   }
+
+   // Leave banners, '/*!', '/**<' and the like alone
+   if (  body_start + 2 >= len
+      || (  !unc_isspace(text[body_start])
+         && !unc_isalnum(text[body_start]))
+      || text[len - 3] == '*')
+   {
+      return;
+   }
+   std::vector<std::wstring> lines;
+   size_t                    start = body_start;
+
+   while (start <= len - 2)
+   {
+      size_t       end  = text.find(L'\n', start);
+      std::wstring line = text.substr(start, std::min(end, len - 2) - start);
+
+      lines.push_back(line);
+
+      if (end == std::string::npos)
+      {
+         break;
+      }
+      start = end + 1;
+   }
+   // A starred line keeps what follows its '*' as written, so dividers and code samples survive.
+   // Any other line keeps its text column relative to the opener, with a ' * ' put in front of it.
+   const size_t open_col = pc->GetOrigCol();
+
+   log_rule_B("input_tab_size");
+
+   for (size_t idx = 0; idx < lines.size(); idx++)
+   {
+      std::wstring &line = lines[idx];
+
+      while (  !line.empty()
+            && unc_isspace(line.back()))
+      {
+         line.pop_back();
+      }
+      size_t first = line.find_first_not_of(L" \t");
+
+      if (first == std::wstring::npos)
+      {
+         line.clear();
+         continue;
+      }
+
+      if (idx == 0)
+      {
+         line = L" " + line.substr(first);
+         continue;
+      }
+
+      if (line[first] == '*')
+      {
+         line.erase(0, first + 1);
+         continue;
+      }
+      size_t col = 1;
+
+      for (size_t ch_idx = 0; ch_idx < first; ch_idx++)
+      {
+         col = (line[ch_idx] == '\t') ? calc_next_tab_column(col, options::input_tab_size()) : col + 1;
+      }
+
+      size_t rel_col = (col > open_col) ? col - open_col : 0;
+
+      line = std::wstring((rel_col > 2) ? rel_col - 2 : 1, L' ') + line.substr(first);
+   }
+
+   // Drop only what was left of the opener and closer lines; blank ' *' lines stay
+   if (  !lines.empty()
+      && lines.back().empty())
+   {
+      lines.pop_back();
+   }
+
+   if (  !lines.empty()
+      && lines.front().empty())
+   {
+      lines.erase(lines.begin());
+   }
+
+   if (lines.empty())
+   {
+      return;
+   }
+   UncText block("/**\n");
+
+   for (const std::wstring &line : lines)
+   {
+      block.append(" *");
+
+      for (wchar_t ch : line)
+      {
+         block.append(int(ch));
+      }
+
+      block.append('\n');
+   }
+
+   block.append(" */");
+
+   pc->Str() = block;
+} // cmt_multi_to_block_form
 
 
 static bool kw_fcn_filename(Chunk *cmt, UncText &out_txt)

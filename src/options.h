@@ -3814,6 +3814,13 @@ cmt_cpp_nl_end;
 extern Option<bool>
 cmt_star_cont;
 
+// Whether to rewrite a multi-line C comment that stands on its own lines into
+// block form: '/**' alone on the first line, ' * ' before each line of text,
+// and the closing '*/' alone on the last line. Banners such as '/***', '/*!'
+// comments and comments that share a line with code are left as they are.
+extern Option<bool>
+cmt_multi_block_form;
+
 // The number of spaces to insert at the start of subsequent comment lines.
 extern BoundedOption<unsigned, 0, 16>
 cmt_sp_before_star_cont;
