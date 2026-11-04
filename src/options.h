@@ -4314,6 +4314,13 @@ pp_indent_func_def; // = true
 extern Option<bool>
 pp_indent_extern; // = true
 
+// Whether to indent preprocessor directives directly inside an 'extern "C"'
+// body to the same column as the code in that body, as set by indent_extern.
+// Takes precedence over pp_indent for those directives. Directives nested
+// deeper, such as inside a function in the body, are not affected.
+extern Option<bool>
+pp_follow_indent_extern;
+
 // How to indent braces directly inside #if, #else, and #endif.
 // Requires pp_if_indent_code=true and only applies to the indent of the
 // preprocessor that the braces are directly inside of.

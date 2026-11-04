@@ -1373,3 +1373,5 @@
 
 61000  cpp/indent_cpp_lambda_from_start_of_opening_line.cfg cpp/indent_cpp_lambda_from_start_of_opening_line.cpp
 61001  cpp/use_gmock_mock_method_params.cfg                cpp/use_gmock_mock_method_params.cpp
+61002  cpp/pp_follow_indent_extern.cfg                  cpp/pp_follow_indent_extern.cpp
+61003  cpp/pp_follow_indent_extern_indented.cfg         cpp/pp_follow_indent_extern.cpp

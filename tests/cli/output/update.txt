@@ -837,6 +837,7 @@ pp_multiline_define_body_indent = 8
 pp_indent_case                  = true
 pp_indent_func_def              = true
 pp_indent_extern                = true
+pp_follow_indent_extern         = false
 pp_indent_brace                 = 1
 pp_unbalanced_if_action         = 0
 include_category_0              = ""

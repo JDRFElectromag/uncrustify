@@ -4726,6 +4726,74 @@ static void indent_comment(Chunk *pc, size_t col)
 } // indent_comment
 
 
+/**
+ * Returns the column for a preprocessor directive directly inside an
+ * 'extern "C"' body, or 0 if pc is not directly inside one. The column is
+ * that of the line holding the opening brace, plus indent_columns when
+ * indent_extern is set, matching where indent_text() puts the body's code.
+ *
+ * A brace opened inside an '#if' that ends before pc, as in the
+ * '#ifdef __cplusplus' header guard, is not treated as a body: its directives
+ * would otherwise be split between the two indents.
+ */
+static size_t extern_body_pp_column(Chunk *pc)
+{
+   size_t depth          = 0;
+   size_t min_end_pp_lvl = SIZE_MAX; /* lowest pp level of an #else/#endif passed */
+
+   for (Chunk *prev = pc->GetPrev(); prev->IsNotNullChunk(); prev = prev->GetPrev())
+   {
+      if (  prev->Is(CT_PREPROC)
+         && (  prev->GetParentType() == CT_PP_ENDIF
+            || prev->GetParentType() == CT_PP_ELSE))
+      {
+         min_end_pp_lvl = std::min(min_end_pp_lvl, prev->GetPpLevel());
+      }
+
+      if (prev->TestFlags(PCF_IN_PREPROC))
+      {
+         continue;
+      }
+
+      if (prev->Is(CT_BRACE_CLOSE))
+      {
+         depth++;
+      }
+      else if (prev->Is(CT_BRACE_OPEN))
+      {
+         if (depth > 0)
+         {
+            depth--;
+            continue;
+         }
+
+         /*
+          * A directive whose brace level is not one inside the brace, such as the
+          * '#endif' after a guarded 'extern "C" {', is not part of the body.
+          */
+         if (  prev->GetParentType() != CT_EXTERN
+            || pc->GetBraceLevel() != prev->GetBraceLevel() + 1
+            || min_end_pp_lvl < prev->GetPpLevel())
+         {
+            return(0);
+         }
+         Chunk *line_start = prev;
+
+         while (  line_start->GetPrev()->IsNotNullChunk()
+               && !line_start->GetPrev()->IsNewline())
+         {
+            line_start = line_start->GetPrev();
+         }
+         log_rule_B("indent_extern");
+         return(line_start->GetColumn()
+                + (options::indent_extern() ? options::indent_columns() : 0));
+      }
+   }
+
+   return(0);
+} // extern_body_pp_column
+
+
 void indent_preproc()
 {
    LOG_FUNC_ENTRY();
@@ -4751,8 +4819,16 @@ void indent_preproc()
       const size_t pp_level = (pc->GetPpLevel() > pp_level_sub)
                               ? pc->GetPpLevel() - pp_level_sub : 0;
 
+      log_rule_B("pp_follow_indent_extern");
+      const size_t extern_col = options::pp_follow_indent_extern()
+                                ? extern_body_pp_column(pc) : 0;
+
       // Adjust the indent of the '#'
-      if (options::pp_indent() & IARF_ADD)
+      if (extern_col > 0)
+      {
+         reindent_line(pc, extern_col);
+      }
+      else if (options::pp_indent() & IARF_ADD)
       {
          log_rule_B("pp_indent ADD");
          reindent_line(pc, 1 + pp_level * options::pp_indent_count());
@@ -4799,6 +4875,11 @@ void indent_preproc()
          {
             pc->SetFlagBits(PCF_DONT_INDENT);
          }
+      }
+
+      if (extern_col > 0)
+      {
+         pc->SetFlagBits(PCF_DONT_INDENT); /* keep the extern body column */
       }
       LOG_FMT(LPPIS, "%s(%d): orig line %zu to %zu (len %zu, next->col %zu)\n",
               __func__, __LINE__, pc->GetOrigLine(), 1 + pp_level, pc->Len(),
